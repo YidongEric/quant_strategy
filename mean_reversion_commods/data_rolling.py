@@ -2,6 +2,35 @@ import pandas as pd
 import numpy as np
 from collections import defaultdict
 
+"""
+Notes on methodology:
+
+1. Calendar-day roll on or before the 25th:
+   • For each year-month, find the 25th trading day; if the 25th is a holiday or weekend,
+     roll on the last available date before the 25th.
+   • This ensures consistency even when the 25th doesn’t exist in the data.
+
+2. Panama (difference) back-adjustment:
+   • On each roll date, compute the price gap:
+       diff = next_month_price − current_month_price
+   • Accumulate a running cum_diff and add it to all earlier raw prices.
+   • This “removes” the artificial gap, preserving point-based P&L calculations.
+
+3. Interior-only interpolation:
+   • Before rolling, we linearly interpolate internal NaNs in each contract series.
+   • We intentionally do NOT forward- or backward-fill leading/trailing NaNs,
+     so “pre-launch” or post-roll tails remain blank.
+
+4. Rolling each contract leg M0→M1, M1→M2, …, M11→M12:
+   • We keep all M0…M12 through the roll process so that M11 can roll into M12.
+   • After completing all back-adjustments, we drop the M12 columns
+     (they are only used as roll targets).
+
+5. Output:
+   • The final CSV has Date + M0…M11 columns, each now containing a
+     back-adjusted continuous series per contract leg.
+"""
+
 # 1) Load & sort
 df = (
     pd.read_csv('output_continuous.csv', parse_dates=['Date'])
