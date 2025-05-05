@@ -33,7 +33,7 @@ Notes on methodology:
 
 # 1) Load & sort
 df = (
-    pd.read_csv('output_continuous.csv', parse_dates=['Date'])
+    pd.read_csv('output_continuous.csv', parse_dates=['Date'], dayfirst=True)
       .sort_values('Date')
       .reset_index(drop=True)
 )
@@ -105,4 +105,4 @@ m12 = [c for c in contract_cols if c.endswith(' M12')]
 output.drop(columns=m12, inplace=True)
 
 # 8) Save
-output.to_csv('rolled_continuous.csv', index=False)
+output.to_csv('rolled_continuous.csv', index=False, date_format='%d/%m/%Y')
