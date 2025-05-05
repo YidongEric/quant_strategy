@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-# -----------------------------
-# Mean Reversion Backtest Script
+# ----------------------------- 
+# Mean Reversion Backtest Script 
 # -----------------------------
 
 # 1) Load back-adjusted futures data, parse dates with day-first format
@@ -73,18 +73,48 @@ for m in months:
     data['equity'] = data['pnl'].cumsum().fillna(0)
     
     # 4e) Compute performance metrics
+    # Basic metrics
     total_ret = data['equity'].iat[-1]
     ann_vol   = data['pnl'].std() * np.sqrt(252)
     sharpe    = (data['pnl'].mean() * 252) / ann_vol if ann_vol else np.nan
     max_dd    = (data['equity'] - data['equity'].cummax()).min()
     
+    # Additional risk metrics
+    # Sortino ratio (downside risk-adjusted return) - using negative returns for downside
+    downside_returns = data['pnl'][data['pnl'] < 0]
+    downside_vol = downside_returns.std() * np.sqrt(252) if not downside_returns.empty else np.nan
+    sortino = (data['pnl'].mean() * 252) / downside_vol if downside_vol and downside_vol > 0 else np.nan
+    
+    # Calmar ratio (return / maximum drawdown)
+    calmar = abs(total_ret / max_dd) if max_dd < 0 else np.nan
+    
+    # Win rate
+    trades = data[data['trades'] > 0]
+    winning_trades = trades[trades['pnl'] > 0]
+    win_rate = len(winning_trades) / len(trades) * 100 if len(trades) > 0 else np.nan
+    
+    # Maximum consecutive losses
+    pnl_by_trade = data.loc[data['trades'] > 0, 'pnl']
+    consecutive_losses = 0
+    max_consecutive_losses = 0
+    for pnl in pnl_by_trade:
+        if pnl < 0:
+            consecutive_losses += 1
+            max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
+        else:
+            consecutive_losses = 0
+    
     results.append({
-        'Month':         f'M{m}',
-        'Start Date':    start_date.strftime('%Y-%m-%d'),
-        'Total Return':  total_ret,
+        'Month':          f'M{m}',
+        'Start Date':     start_date.strftime('%Y-%m-%d'),
+        'Total Return':   total_ret,
         'Ann. Volatility': ann_vol,
-        'Sharpe Ratio':  sharpe,
-        'Max Drawdown':  max_dd
+        'Sharpe Ratio':   sharpe,
+        'Sortino Ratio':  sortino,
+        'Calmar Ratio':   calmar,
+        'Win Rate (%)':   win_rate,
+        'Max Cons. Losses': max_consecutive_losses,
+        'Max Drawdown':   max_dd
     })
     
     # 4f) Plot equity curve
@@ -104,4 +134,5 @@ for m in months:
 
 # 5) Print summary table
 perf = pd.DataFrame(results)
+pd.set_option('display.float_format', '{:.2f}'.format)
 print(perf.to_string(index=False))
